@@ -791,6 +791,7 @@ extension SwiftNfcManagerPlugin: NFCTagReaderSessionDelegate {
                  }
 
                  if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
+                 session.invalidate() // Ends session without success message
              }
          }
   }
