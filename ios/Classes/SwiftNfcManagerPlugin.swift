@@ -747,30 +747,48 @@ extension SwiftNfcManagerPlugin: NFCTagReaderSessionDelegate {
   }
 
   public func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
-    let handle = NSUUID().uuidString
+      let handle = NSUUID().uuidString
 
-    session.connect(to: tags.first!) { error in
-      if let error = error {
-        // skip tag detection
-        print(error)
-        if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
-        return
-      }
+         session.connect(to: tags.first!) { error in
+             if let error = error {
+                 // Skip tag detection
+                 print("Error connecting to tag: \(error.localizedDescription)")
+                 if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
+                 return
+             }
 
-      getNFCTagMapAsync(tags.first!) { tag, data, error in
-        if let error = error {
-          // skip tag detection
-          print(error)
-          if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
-          return
-        }
+             getNFCTagMapAsync(tags.first!) { tag, data, error in
+                 if let error = error {
+                     print("Error getting tag map: \(error.localizedDescription)")
+                     if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
+                     return
+                 }
 
-        self.tags[handle] = tag
-        DispatchQueue.main.sync {
-          self.channel.invokeMethod("onDiscovered", arguments: data.merging(["handle": handle]) { cur, _ in cur })
-        }
-        if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
-      }
-    }
+                 // Extract the unique identifier (UID) for all supported tag types
+                 var vallettoIdentifier: String?
+                 switch tags.first! {
+                 case let .miFare(tag as NFCMiFareTag):
+                     vallettoIdentifier = tag.identifier.map { String(format: "%.2hhx", $0) }.joined()
+                 case let .iso7816(tag as NFCISO7816Tag):
+                     vallettoIdentifier = tag.identifier.map { String(format: "%.2hhx", $0) }.joined()
+                 case let .iso15693(tag as NFCISO15693Tag):
+                     vallettoIdentifier = tag.identifier.map { String(format: "%.2hhx", $0) }.joined()
+                 case let .feliCa(tag as NFCFeliCaTag):
+                     vallettoIdentifier = tag.currentIDm.map { String(format: "%.2hhx", $0) }.joined()
+                 default:
+                     vallettoIdentifier = nil
+                 }
+
+                 // Add the custom UID key to the data being sent back to Flutter
+                 var updatedData = data
+                 updatedData["valletto_identifier_tag"] = vallettoIdentifier
+                 self.tags[handle] = tag
+                 DispatchQueue.main.sync {
+                     self.channel.invokeMethod("onDiscovered", arguments: updatedData.merging(["handle": handle]) { cur, _ in cur })
+                 }
+
+                 if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
+             }
+         }
   }
 }
