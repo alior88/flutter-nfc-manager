@@ -749,6 +749,7 @@ extension SwiftNfcManagerPlugin: NFCTagReaderSessionDelegate {
   public func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
       let handle = NSUUID().uuidString
       // Notify Flutter to dismiss the bottom sheet immediately
+      print("invalidating after tag detection is in progress...")
           DispatchQueue.main.async {
               self.channel.invokeMethod("dismissBottomSheet", arguments: nil)
           }
@@ -791,6 +792,7 @@ extension SwiftNfcManagerPlugin: NFCTagReaderSessionDelegate {
                  }
 
                  if !self.shouldInvalidateSessionAfterFirstRead { session.restartPolling() }
+                 print("invalidating")
                  session.invalidate() // Ends session without success message
              }
          }
